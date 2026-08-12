@@ -118,4 +118,80 @@ group by cbsaname
 order by total_population
 limit 1;
 
+--What is the largest (in terms of population) county which is --
+--not included in a CBSA? Report the county name and population.--
+select county,population
+from fips_county
+	inner join population on fips_county.fipscounty=population.fipscounty
+	left join cbsa on fips_county.fipscounty=cbsa.fipscounty
+where cbsa is null	
+order by population desc
+limit 1;
 
+--Find all rows in the prescription table where total_claims is at least 3000. 
+--Report the drug_name and the total_claim_count.--
+select
+	drug_name,total_claim_count
+from prescription
+where total_claim_count>=3000;
+
+--For each instance that you found in part a,--
+--add a column that indicates whether the drug is an opioid.--
+select
+	drug.drug_name,total_claim_count,
+	case when opioid_drug_flag='Y' then 'yes'
+	else 'no' end as Opioid
+from prescription
+	inner join drug on prescription.drug_name=drug.drug_name
+where total_claim_count>=3000;
+
+--Add another column to you answer from the previous part which gives the prescriber--
+--first and last name associated with each row.--
+select
+	drug.drug_name,total_claim_count,nppes_provider_last_org_name,nppes_provider_first_name,
+	case when opioid_drug_flag='Y' then 'yes'
+	else 'no' end as Opioid
+from prescription
+	inner join drug on prescription.drug_name=drug.drug_name
+	inner join prescriber on prescriber.npi=prescriber.npi
+where total_claim_count>=3000;
+
+--First, create a list of all npi/drug_name combinations for pain management specialists --
+--(specialty_description = 'Pain Management) in the city of Nashville (nppes_provider_city = 'NASHVILLE'),--
+--where the drug is an opioid (opioid_drug_flag = 'Y'). **Warning:** Double-check your query before running it.--
+--You will only need to use the prescriber and drug tables since you don't need the claims numbers yet--
+select 
+	npi,drug_name
+from prescriber
+	cross join drug
+where specialty_description = 'Pain Management'
+	and nppes_provider_city = 'NASHVILLE'
+	and opioid_drug_flag = 'Y';
+--Next, report the number of claims per drug per prescriber. Be sure to include all combinations,-- 
+--whether or not the prescriber had any claims. --
+--You should report the npi, the drug name, and the number of claims (total_claim_count).--	
+select 
+	prescriber.npi,
+	drug.drug_name,total_claim_count
+from prescriber
+	cross join drug
+	left join prescription on prescription.npi = prescriber.npi
+	and prescription.drug_name=drug.drug_name
+where specialty_description = 'Pain Management'
+	and nppes_provider_city = 'NASHVILLE'
+	and opioid_drug_flag = 'Y';
+	
+--Finally, if you have not done so already,-- 
+--fill in any missing values for total_claim_count with 0.-- 
+--Hint - Google the COALESCE function.--
+select 
+	prescriber.npi,
+	drug.drug_name,
+	coalesce(total_claim_count, '0') as claim_count
+from prescriber
+	cross join drug
+	left join prescription on prescription.npi = prescriber.npi
+	and prescription.drug_name=drug.drug_name
+where specialty_description = 'Pain Management'
+	and nppes_provider_city = 'NASHVILLE'
+	and opioid_drug_flag = 'Y';
