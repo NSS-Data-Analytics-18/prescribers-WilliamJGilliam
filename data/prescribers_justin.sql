@@ -195,3 +195,172 @@ from prescriber
 where specialty_description = 'Pain Management'
 	and nppes_provider_city = 'NASHVILLE'
 	and opioid_drug_flag = 'Y';
+
+--**Difficult Bonus:** *Do not attempt until you have solved all other problems!* 
+--For each specialty, report the percentage of total claims by that specialty which are for opioids.--
+--Which specialties have a high percentage of opioids?--
+select 
+	Specialty_description,
+	round(sum(case 
+			when opioid_drug_flag = 'Y'
+			then total_claim_count 
+			else 0
+			end)*100.0 / sum(total_claim_count),2) as percentage_of_claims
+from prescriber
+	inner join prescription on prescription.npi = prescriber.npi
+	inner join drug on prescription.drug_name=drug.drug_name
+group by specialty_description
+order by percentage_of_claims desc;
+
+----README_BONUS-----
+
+--How many npi numbers appear in the prescriber table but not in the prescription table?--
+select count (*) as npi 
+from (select npi
+	from prescriber
+	except
+	select npi
+	from prescription);
+
+--Find the top five drugs (generic_name) prescribed by prescribers with the specialty of Family Practice.
+
+select 
+	generic_name
+from prescriber
+	inner join prescription on prescription.npi = prescriber.npi
+	inner join drug on prescription.drug_name=drug.drug_name
+where specialty_description= 'Family Practice'
+group by drug.generic_name
+order by sum(prescription.total_claim_count) desc
+limit 5;
+--Find the top five drugs (generic_name) prescribed by prescribers with the specialty of Cardiology--
+select 
+	generic_name
+from prescriber
+	inner join prescription on prescription.npi = prescriber.npi
+	inner join drug on prescription.drug_name=drug.drug_name
+where specialty_description= 'Cardiology'
+group by generic_name
+order by sum(prescription.total_claim_count) desc
+limit 5;
+
+--Which drugs are in the top five prescribed by Family Practice prescribers and Cardiologists?--
+--Combine what you did for parts a and b into a single query to answer this question--
+(select 
+	generic_name,'Family Practice' as specialty_description 
+from prescriber
+	inner join prescription on prescription.npi = prescriber.npi
+	inner join drug on prescription.drug_name=drug.drug_name
+where specialty_description= 'Family Practice'
+group by drug.generic_name
+order by sum(prescription.total_claim_count) desc
+limit 5 ) 
+union
+(select 
+	generic_name,'cardiology'as specialty_description
+from prescriber
+	inner join prescription on prescription.npi = prescriber.npi
+	inner join drug on prescription.drug_name=drug.drug_name
+where specialty_description= 'Cardiology'
+group by generic_name
+order by sum(prescription.total_claim_count) desc
+limit 5);
+
+--First, write a query that finds the top 5 prescribers in Nashville in terms of the total number of claims 
+--(total_claim_count) across all drugs.--
+--Report the npi, the total number of claims, and include a column showing the city.
+select
+	prescriber.npi,nppes_provider_city,sum(total_claim_count)as total_claims
+from prescriber
+inner join prescription on prescriber.npi =prescription.npi
+where nppes_provider_city ilike '%nashville%'
+group by prescriber.npi,nppes_provider_city
+order by total_claims desc
+limit 5;
+
+--Now, report the same for Memphis--
+select
+	prescriber.npi,nppes_provider_city,sum(total_claim_count)as total_claims
+from prescriber
+inner join prescription on prescriber.npi =prescription.npi
+where nppes_provider_city ilike '%memphis%'
+group by prescriber.npi,nppes_provider_city
+order by total_claims desc
+limit 5;
+
+--Combine your results from a and b, along with the results for Knoxville and Chattanooga.--
+(select
+	prescriber.npi,'Nashville' as nppes_provider_city,sum(total_claim_count)as total_claims
+from prescriber
+inner join prescription on prescriber.npi =prescription.npi
+where nppes_provider_city ilike '%nashville%'
+group by prescriber.npi,nppes_provider_city
+order by total_claims desc
+limit 5)
+union
+(select
+	prescriber.npi,'Memphis' as nppes_provider_city,sum(total_claim_count)as total_claims
+from prescriber
+inner join prescription on prescriber.npi =prescription.npi
+where nppes_provider_city ilike '%memphis%'
+group by prescriber.npi,nppes_provider_city
+order by total_claims desc
+limit 5)
+union
+(select
+	prescriber.npi,'Knoxville' as nppes_provider_city,sum(total_claim_count)as total_claims
+from prescriber
+inner join prescription on prescriber.npi =prescription.npi
+where nppes_provider_city ilike '%knoxville%'
+group by prescriber.npi,nppes_provider_city
+order by total_claims desc
+limit 5)
+union
+(select
+	prescriber.npi,'Chattanooga' as nppes_provider_city,sum(total_claim_count)as total_claims
+from prescriber
+inner join prescription on prescriber.npi =prescription.npi
+where nppes_provider_city ilike '%chattanooga%'
+group by prescriber.npi,nppes_provider_city
+order by total_claims desc
+limit 5)
+order by total_claims desc;
+
+--. Find all counties which had an above-average number of overdose deaths.--
+--Report the county name and number of overdose deaths--
+SELECT
+    county,
+    SUM(overdose_deaths) AS total_overdose_deaths
+FROM overdose_deaths
+INNER JOIN fips_county
+    ON fips_county.fipscounty::numeric = overdose_deaths.fipscounty
+GROUP BY county
+HAVING SUM(overdose_deaths) > (
+    SELECT AVG(total_deaths)
+    FROM (
+        SELECT
+            SUM(overdose_deaths) AS total_deaths
+        FROM overdose_deaths
+        GROUP BY fipscounty
+    ) AS county_totals
+)
+ORDER BY total_overdose_deaths DESC;
+
+--Write a query that finds the total population of Tennessee--
+select sum(population) as population_TN
+from population
+	inner join fips_county on fips_county.fipscounty=population.fipscounty
+where state = 'TN';	
+
+--Build off of the query that you wrote in part a to write a query that returns for each county that county's name, --
+--its population, and the percentage of the total population of Tennessee that is contained in that county.--
+select county,population,round((population*100.0)/(select sum(population) as population_TN
+from population
+	inner join fips_county on fips_county.fipscounty=population.fipscounty
+where state = 'TN'),2) as percent_of_TNpop
+from population
+	inner join fips_county on fips_county.fipscounty=population.fipscounty
+where state = 'TN'
+order by percent_of_TNpop desc
+
+
